@@ -1,0 +1,39 @@
+{
+  "name": "digitrade",
+  "version": "1.0.0",
+  "description": "Production-grade outward remittance platform",
+  "private": true,
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "bootstrap": "yarn install && yarn workspaces foreach -A run setup",
+    "build": "yarn workspaces foreach -ptA run build",
+    "build:services": "yarn workspaces foreach -pt --include '@remit/*' run build",
+    "build:frontend": "yarn workspace @remit/frontend build",
+    "dev": "yarn workspaces foreach -A run dev",
+    "dev:services": "yarn workspaces foreach -pt --include '@remit/*' run dev",
+    "dev:frontend": "yarn workspace @remit/frontend dev",
+    "lint": "yarn workspaces foreach -A run lint",
+    "test": "yarn workspaces foreach -A run test",
+    "test:cov": "yarn workspaces foreach -A run test:cov",
+    "format": "prettier --write \"**/*.{ts,tsx,js,json,md}\"",
+    "format:check": "prettier --check \"**/*.{ts,tsx,js,json,md}\"",
+    "docker:up": "docker-compose -f infrastructure/docker/docker-compose.yml up -d",
+    "docker:down": "docker-compose -f infrastructure/docker/docker-compose.yml down",
+    "docker:logs": "docker-compose -f infrastructure/docker/docker-compose.yml logs -f",
+    "migrate:dev": "yarn workspace @remit/prisma prisma migrate dev",
+    "migrate:deploy": "yarn workspace @remit/prisma prisma migrate deploy",
+    "seed": "yarn workspace @remit/prisma seed"
+  },
+  "devDependencies": {
+    "prettier": "^3.1.1",
+    "typescript": "^5.3.3"
+  },
+  "engines": {
+    "node": ">=20.0.0",
+    "yarn": ">=4.0.0"
+  },
+  "packageManager": "yarn@4.14.1"
+}

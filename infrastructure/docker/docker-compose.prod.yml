@@ -1,0 +1,270 @@
+version: '3.9'
+
+services:
+  postgres:
+    restart: always
+    environment:
+      POSTGRES_DB: ${DB_NAME:-digitrade}
+      POSTGRES_USER: ${DB_USER:-postgres}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-postgres}
+      PGDATA: /var/lib/postgresql/data/pgdata
+    volumes:
+      - postgres_backup:/var/lib/postgresql/backup
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - digitrade-network
+
+  redis:
+    restart: always
+    command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD:-redis-password}
+    volumes:
+      - redis_data:/data
+    networks:
+      - digitrade-network
+
+  auth-service:
+    image: ${REGISTRY:-digitrade}/auth-service:${VERSION:-latest}
+    container_name: auth-service
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
+      kafka:
+        condition: service_healthy
+    environment:
+      NODE_ENV: production
+      DATABASE_URL: postgresql://${DB_USER:-postgres}:${DB_PASSWORD:-postgres}@postgres:5432/${DB_NAME:-digitrade}
+      REDIS_URL: redis://:${REDIS_PASSWORD:-redis-password}@redis:6379
+      KAFKA_BROKERS: kafka:9092
+      JWT_SECRET: ${JWT_SECRET}
+      LOG_LEVEL: info
+    ports:
+      - "3001:3000"
+    networks:
+      - digitrade-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  user-service:
+    image: ${REGISTRY:-digitrade}/user-service:${VERSION:-latest}
+    container_name: user-service
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
+      kafka:
+        condition: service_healthy
+    environment:
+      NODE_ENV: production
+      DATABASE_URL: postgresql://${DB_USER:-postgres}:${DB_PASSWORD:-postgres}@postgres:5432/${DB_NAME:-digitrade}
+      REDIS_URL: redis://:${REDIS_PASSWORD:-redis-password}@redis:6379
+      KAFKA_BROKERS: kafka:9092
+      LOG_LEVEL: info
+    ports:
+      - "3002:3000"
+    networks:
+      - digitrade-network
+    restart: unless-stopped
+
+  beneficiary-service:
+    image: ${REGISTRY:-digitrade}/beneficiary-service:${VERSION:-latest}
+    container_name: beneficiary-service
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
+      kafka:
+        condition: service_healthy
+    environment:
+      NODE_ENV: production
+      DATABASE_URL: postgresql://${DB_USER:-postgres}:${DB_PASSWORD:-postgres}@postgres:5432/${DB_NAME:-digitrade}
+      REDIS_URL: redis://:${REDIS_PASSWORD:-redis-password}@redis:6379
+      KAFKA_BROKERS: kafka:9092
+      LOG_LEVEL: info
+    ports:
+      - "3003:3000"
+    networks:
+      - digitrade-network
+    restart: unless-stopped
+
+  quote-service:
+    image: ${REGISTRY:-digitrade}/quote-service:${VERSION:-latest}
+    container_name: quote-service
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
+      kafka:
+        condition: service_healthy
+    environment:
+      NODE_ENV: production
+      DATABASE_URL: postgresql://${DB_USER:-postgres}:${DB_PASSWORD:-postgres}@postgres:5432/${DB_NAME:-digitrade}
+      REDIS_URL: redis://:${REDIS_PASSWORD:-redis-password}@redis:6379
+      KAFKA_BROKERS: kafka:9092
+      LOG_LEVEL: info
+    ports:
+      - "3004:3000"
+    networks:
+      - digitrade-network
+    restart: unless-stopped
+
+  compliance-service:
+    image: ${REGISTRY:-digitrade}/compliance-service:${VERSION:-latest}
+    container_name: compliance-service
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
+      kafka:
+        condition: service_healthy
+    environment:
+      NODE_ENV: production
+      DATABASE_URL: postgresql://${DB_USER:-postgres}:${DB_PASSWORD:-postgres}@postgres:5432/${DB_NAME:-digitrade}
+      REDIS_URL: redis://:${REDIS_PASSWORD:-redis-password}@redis:6379
+      KAFKA_BROKERS: kafka:9092
+      LOG_LEVEL: info
+    ports:
+      - "3005:3000"
+    networks:
+      - digitrade-network
+    restart: unless-stopped
+
+  payment-orchestrator:
+    image: ${REGISTRY:-digitrade}/payment-orchestrator:${VERSION:-latest}
+    container_name: payment-orchestrator
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
+      kafka:
+        condition: service_healthy
+    environment:
+      NODE_ENV: production
+      DATABASE_URL: postgresql://${DB_USER:-postgres}:${DB_PASSWORD:-postgres}@postgres:5432/${DB_NAME:-digitrade}
+      REDIS_URL: redis://:${REDIS_PASSWORD:-redis-password}@redis:6379
+      KAFKA_BROKERS: kafka:9092
+      LOG_LEVEL: info
+    ports:
+      - "3006:3000"
+    networks:
+      - digitrade-network
+    restart: unless-stopped
+
+  document-service:
+    image: ${REGISTRY:-digitrade}/document-service:${VERSION:-latest}
+    container_name: document-service
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
+      kafka:
+        condition: service_healthy
+    environment:
+      NODE_ENV: production
+      DATABASE_URL: postgresql://${DB_USER:-postgres}:${DB_PASSWORD:-postgres}@postgres:5432/${DB_NAME:-digitrade}
+      REDIS_URL: redis://:${REDIS_PASSWORD:-redis-password}@redis:6379
+      KAFKA_BROKERS: kafka:9092
+      AWS_S3_BUCKET: ${AWS_S3_BUCKET}
+      LOG_LEVEL: info
+    ports:
+      - "3007:3000"
+    networks:
+      - digitrade-network
+    restart: unless-stopped
+
+  notification-service:
+    image: ${REGISTRY:-digitrade}/notification-service:${VERSION:-latest}
+    container_name: notification-service
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
+      kafka:
+        condition: service_healthy
+    environment:
+      NODE_ENV: production
+      REDIS_URL: redis://:${REDIS_PASSWORD:-redis-password}@redis:6379
+      KAFKA_BROKERS: kafka:9092
+      SMTP_HOST: ${SMTP_HOST}
+      SMTP_PORT: ${SMTP_PORT}
+      SMTP_USER: ${SMTP_USER}
+      SMTP_PASSWORD: ${SMTP_PASSWORD}
+      LOG_LEVEL: info
+    ports:
+      - "3008:3000"
+    networks:
+      - digitrade-network
+    restart: unless-stopped
+
+  admin-service:
+    image: ${REGISTRY:-digitrade}/admin-service:${VERSION:-latest}
+    container_name: admin-service
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
+      kafka:
+        condition: service_healthy
+    environment:
+      NODE_ENV: production
+      DATABASE_URL: postgresql://${DB_USER:-postgres}:${DB_PASSWORD:-postgres}@postgres:5432/${DB_NAME:-digitrade}
+      REDIS_URL: redis://:${REDIS_PASSWORD:-redis-password}@redis:6379
+      KAFKA_BROKERS: kafka:9092
+      LOG_LEVEL: info
+    ports:
+      - "3009:3000"
+    networks:
+      - digitrade-network
+    restart: unless-stopped
+
+  frontend:
+    image: ${REGISTRY:-digitrade}/frontend:${VERSION:-latest}
+    container_name: frontend
+    depends_on:
+      - auth-service
+    environment:
+      NODE_ENV: production
+      NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-https://api.digitrade.com}
+    ports:
+      - "3000:3000"
+    networks:
+      - digitrade-network
+    restart: unless-stopped
+
+  nginx:
+    image: nginx:alpine
+    container_name: nginx
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./infrastructure/docker/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./infrastructure/docker/ssl:/etc/nginx/ssl:ro
+    depends_on:
+      - frontend
+      - auth-service
+    networks:
+      - digitrade-network
+    restart: unless-stopped
+
+volumes:
+  postgres_backup:
+  postgres_data:
+  redis_data:
+
+networks:
+  digitrade-network:
+    driver: bridge

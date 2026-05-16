@@ -1,0 +1,13 @@
+node_modules/
+dist/
+coverage/
+.DS_Store
+*.pid
+*.seed
+.env.local
+.env.production.local
+.next/
+.env
+.vscode
+.idea
+*.iml

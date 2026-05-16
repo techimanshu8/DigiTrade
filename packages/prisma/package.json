@@ -1,0 +1,23 @@
+{
+  "name": "@remit/prisma",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Prisma schema and migrations",
+  "scripts": {
+    "setup": "prisma generate",
+    "generate": "prisma generate",
+    "migrate:dev": "prisma migrate dev",
+    "migrate:deploy": "prisma migrate deploy",
+    "seed": "ts-node prisma/seed.ts",
+    "studio": "prisma studio"
+  },
+  "dependencies": {
+    "@prisma/client": "5.22.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.16",
+    "prisma": "5.22.0",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.3.3"
+  }
+}

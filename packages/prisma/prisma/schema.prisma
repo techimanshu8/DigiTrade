@@ -1,0 +1,232 @@
+// prisma/schema.prisma
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  USER
+  ADMIN
+  SUPPORT
+}
+
+enum UserStatus {
+  ACTIVE
+  INACTIVE
+  SUSPENDED
+  DELETED
+}
+
+model User {
+  id                String         @id @default(uuid())
+  fullName          String
+  email             String         @unique
+  mobile            String?        @unique
+  passwordHash      String         @map("password_hash")
+  role              Role           @default(USER)
+  status            UserStatus     @default(INACTIVE)
+  mfaEnabled        Boolean        @default(false) @map("mfa_enabled")
+  mfaSecret         String?        @map("mfa_secret")
+  failedLoginCount  Int            @default(0) @map("failed_login_count")
+  lockedUntil       DateTime?      @map("locked_until")
+  lastLoginAt       DateTime?      @map("last_login_at")
+  lastLoginIp       String?        @map("last_login_ip")
+  emailVerified     Boolean        @default(false) @map("email_verified")
+  emailVerificationToken String?   @unique @map("email_verification_token")
+  passwordResetToken String?       @unique @map("password_reset_token")
+  passwordResetExpiresAt DateTime? @map("password_reset_expires_at")
+  createdAt         DateTime       @default(now()) @map("created_at")
+  updatedAt         DateTime       @updatedAt @map("updated_at")
+  
+  refreshTokens     RefreshToken[]
+  auditLogs         AuditLog[]
+  documents         Document[]
+  beneficiaries     Beneficiary[]
+  profile           Profile?
+
+  @@map("users")
+  @@index([email])
+  @@index([mobile])
+  @@index([status])
+}
+
+enum KycStatus {
+  PENDING
+  IN_PROGRESS
+  VERIFIED
+  REJECTED
+}
+
+model Profile {
+  id              String      @id @default(uuid())
+  userId          String      @unique @map("user_id")
+  pan             String?     @unique
+  aadhaarMasked   String?     @map("aadhaar_masked")
+  dob             DateTime?
+  nationality     String?
+  residencyStatus String?     @map("residency_status")
+  occupation      String?
+  annualIncome    String?     @map("annual_income")
+  sourceOfFunds   String?     @map("source_of_funds")
+  fatca           Boolean     @default(false)
+  pep             Boolean     @default(false)
+  taxResidency    String?     @map("tax_residency")
+  createdAt       DateTime    @default(now()) @map("created_at")
+  updatedAt       DateTime    @updatedAt @map("updated_at")
+
+  user            User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  address         Address?
+  kycState        KycState?
+
+  @@map("profiles")
+}
+
+model Address {
+  id              String      @id @default(uuid())
+  profileId       String      @unique @map("profile_id")
+  line1           String
+  line2           String?
+  city            String
+  state           String
+  pincode         String
+  country         String
+  createdAt       DateTime    @default(now()) @map("created_at")
+  updatedAt       DateTime    @updatedAt @map("updated_at")
+
+  profile         Profile     @relation(fields: [profileId], references: [id], onDelete: Cascade)
+
+  @@map("addresses")
+}
+
+model KycState {
+  id              String      @id @default(uuid())
+  profileId       String      @unique @map("profile_id")
+  status          KycStatus   @default(PENDING)
+  remarks         String?
+  verifiedAt      DateTime?   @map("verified_at")
+  verifiedBy      String?     @map("verified_by") // e.g. Admin ID or System
+  createdAt       DateTime    @default(now()) @map("created_at")
+  updatedAt       DateTime    @updatedAt @map("updated_at")
+
+  profile         Profile     @relation(fields: [profileId], references: [id], onDelete: Cascade)
+
+  @@map("kyc_states")
+}
+
+enum DocumentType {
+  PAN
+  PASSPORT
+  VISA
+  INVOICE
+  BOE
+  ADMISSION_LETTER
+  MEDICAL_ESTIMATE
+  PURCHASE_ORDER
+  OTHER
+}
+
+enum DocumentStatus {
+  PENDING
+  VIRUS_SCAN_FAILED
+  OCR_PROCESSING
+  OCR_COMPLETED
+  VERIFIED
+  REJECTED
+}
+
+model Document {
+  id              String         @id @default(uuid())
+  userId          String         @map("user_id")
+  type            DocumentType
+  status          DocumentStatus @default(PENDING)
+  fileName        String         @map("file_name")
+  fileSize        Int            @map("file_size")
+  mimeType        String         @map("mime_type")
+  s3Key           String         @unique @map("s3_key")
+  s3Bucket        String         @map("s3_bucket")
+  metadata        Json?
+  uploadedAt      DateTime       @default(now()) @map("uploaded_at")
+  updatedAt       DateTime       @updatedAt @map("updated_at")
+
+  user            User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("documents")
+  @@index([userId])
+  @@index([type])
+  @@index([status])
+}
+
+model RefreshToken {
+  id                String    @id @default(uuid())
+  userId            String    @map("user_id")
+  token             String    @unique
+  expiresAt         DateTime  @map("expires_at")
+  revokedAt         DateTime? @map("revoked_at")
+  ipAddress         String?   @map("ip_address")
+  userAgent         String?   @map("user_agent")
+  createdAt         DateTime  @default(now()) @map("created_at")
+  
+  user              User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("refresh_tokens")
+  @@index([userId])
+  @@index([token])
+}
+
+model AuditLog {
+  id                String    @id @default(uuid())
+  userId            String    @map("user_id")
+  action            String
+  entity            String
+  entityId          String    @map("entity_id")
+  changes           Json?
+  ipAddress         String?   @map("ip_address")
+  userAgent         String?   @map("user_agent")
+  createdAt         DateTime  @default(now()) @map("created_at")
+  
+  user              User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("audit_logs")
+  @@index([userId])
+  @@index([action])
+}
+
+enum BeneficiaryType {
+  INDIVIDUAL
+  BUSINESS
+}
+
+model Beneficiary {
+  id                     String          @id @default(uuid())
+  userId                 String          @map("user_id")
+  beneficiaryType        BeneficiaryType @map("beneficiary_type")
+  name                   String
+  relationship           String?
+  email                  String?
+  phone                  String?
+  address                String?
+  city                   String?
+  country                String
+  bankName               String          @map("bank_name")
+  bankAddress            String?         @map("bank_address")
+  accountNumberEncrypted String          @map("account_number_encrypted")
+  iban                   String?
+  swift                  String?
+  routingNumber          String?         @map("routing_number")
+  taxId                  String?         @map("tax_id")
+  registrationNumber     String?         @map("registration_number")
+  invoiceReference       String?         @map("invoice_reference")
+  isActive               Boolean         @default(true) @map("is_active")
+  createdAt              DateTime        @default(now()) @map("created_at")
+  updatedAt              DateTime        @updatedAt @map("updated_at")
+
+  user                   User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("beneficiaries")
+  @@index([userId])
+  @@index([country])
+}

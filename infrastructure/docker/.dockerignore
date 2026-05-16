@@ -1,0 +1,10 @@
+.env.local
+.env.production.local
+dist/
+node_modules/
+.next/
+coverage/
+.DS_Store
+*.pid
+*.seed
+*.pid.lock
