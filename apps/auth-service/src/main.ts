@@ -1,54 +1,58 @@
+// src/main.ts
 import { NestFactory } from '@nestjs/core';
-import { ValidationPipe } from '@nestjs/common';
+import { ValidationPipe, VersioningType } from '@nestjs/common';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
+import { ConfigService } from '@nestjs/config';
 import { AppModule } from './app.module';
-import { AllExceptionsFilter } from './common/filters/all-exceptions.filter';
+import { HttpExceptionFilter } from './common/filters/http-exception.filter';
+import { LoggingInterceptor } from './common/interceptors/logging.interceptor';
+import { TransformInterceptor } from './common/interceptors/transform.interceptor';
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule);
+  const app = await NestFactory.create(AppModule, {
+    logger: ['error', 'warn', 'log'],
+  });
 
-  // Global validation pipe
+  const configService = app.get(ConfigService);
+  const port = configService.get<number>('PORT', 3001);
+  const nodeEnv = configService.get<string>('NODE_ENV', 'development');
+
+  // Global prefix + versioning
+  app.setGlobalPrefix('api');
+  app.enableVersioning({ type: VersioningType.URI, defaultVersion: '1' });
+
+  // Security
+  app.enableCors({
+    origin: configService.get<string>('ALLOWED_ORIGINS', '').split(','),
+    credentials: true,
+  });
+
+  // Global pipes, filters, interceptors
   app.useGlobalPipes(
     new ValidationPipe({
       whitelist: true,
       forbidNonWhitelisted: true,
       transform: true,
-      transformOptions: {
-        enableImplicitConversion: true,
-      },
+      transformOptions: { enableImplicitConversion: true },
     }),
   );
+  app.useGlobalFilters(new HttpExceptionFilter());
+  app.useGlobalInterceptors(new LoggingInterceptor(), new TransformInterceptor());
 
-  // Global exception filter
-  app.useGlobalFilters(new AllExceptionsFilter());
+  // OpenAPI
+  if (nodeEnv !== 'production') {
+    const config = new DocumentBuilder()
+      .setTitle('Remit Auth Service')
+      .setDescription('Authentication & authorization API')
+      .setVersion('1.0')
+      .addBearerAuth()
+      .build();
+    const document = SwaggerModule.createDocument(app, config);
+    SwaggerModule.setup('api/docs', app, document);
+  }
 
-  // Swagger documentation
-  const config = new DocumentBuilder()
-    .setTitle('Auth Service API')
-    .setDescription('Authentication and authorization microservice')
-    .setVersion('1.0')
-    .addBearerAuth(
-      { type: 'http', scheme: 'bearer', bearerFormat: 'JWT' },
-      'bearer',
-    )
-    .addTag('auth', 'Authentication endpoints')
-    .build();
-
-  const document = SwaggerModule.createDocument(app, config);
-  SwaggerModule.setup('api/docs', app, document);
-
-  // CORS
-  app.enableCors({
-    origin: process.env.CORS_ORIGIN?.split(',') || '*',
-    credentials: true,
-  });
-
-  const port = process.env.PORT || 3001;
   await app.listen(port);
-  console.log(`Auth Service running on port ${port}`);
+  console.log(`Auth service running on port ${port} [${nodeEnv}]`);
 }
 
-bootstrap().catch((error) => {
-  console.error('Failed to start Auth Service:', error);
-  process.exit(1);
-});
+bootstrap();

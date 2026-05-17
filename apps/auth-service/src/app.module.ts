@@ -1,44 +1,57 @@
+// src/app.module.ts
 import { Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
-import { JwtModule } from '@nestjs/jwt';
-import { PassportModule } from '@nestjs/passport';
 import { ThrottlerModule } from '@nestjs/throttler';
+import { APP_GUARD } from '@nestjs/core';
+import { ThrottlerGuard } from '@nestjs/throttler';
+import { AuthModule } from './auth/auth.module';
 import { PrismaModule } from './prisma/prisma.module';
-import { AuthController } from './auth/auth.controller';
-import { AuthService } from './auth/auth.service';
-import { JwtStrategy } from './auth/strategies/jwt.strategy';
-import { EmailModule } from './email/email.module';
+import { RedisModule } from './redis/redis.module';
 import { KafkaModule } from './kafka/kafka.module';
+import { AuditModule } from './audit/audit.module';
+import { HealthModule } from './health/health.module';
+import appConfig from './config/app.config';
+import jwtConfig from './config/jwt.config';
+import redisConfig from './config/redis.config';
+import kafkaConfig from './config/kafka.config';
 
 @Module({
   imports: [
     ConfigModule.forRoot({
       isGlobal: true,
-      envFilePath: '.env.local',
+      load: [appConfig, jwtConfig, redisConfig, kafkaConfig],
+      envFilePath: ['.env.local', '.env'],
     }),
-    JwtModule.registerAsync({
-      global: true,
+    ThrottlerModule.forRootAsync({
+      imports: [ConfigModule],
       inject: [ConfigService],
-      useFactory: (configService: ConfigService) => ({
-        secret: configService.get('JWT_SECRET'),
-        signOptions: {
-          expiresIn: configService.get('JWT_EXPIRE_IN', '7d'),
-        },
+      useFactory: (cs: ConfigService) => ({
+        throttlers: [
+          {
+            name: 'global',
+            ttl: cs.get<number>('THROTTLE_TTL', 60000),
+            limit: cs.get<number>('THROTTLE_LIMIT', 20),
+          },
+          {
+            name: 'auth',
+            ttl: 300000, // 5 minutes
+            limit: 10,
+          },
+        ],
       }),
     }),
-    PassportModule,
-    ThrottlerModule.forRoot([
-      {
-        ttl: 60000,
-        limit: 10,
-      },
-    ]),
     PrismaModule,
-    EmailModule,
+    RedisModule,
     KafkaModule,
+    AuditModule,
+    AuthModule,
+    HealthModule,
   ],
-  controllers: [AuthController],
-  providers: [AuthService, JwtStrategy],
-  exports: [AuthService],
+  providers: [
+    {
+      provide: APP_GUARD,
+      useClass: ThrottlerGuard,
+    },
+  ],
 })
 export class AppModule {}

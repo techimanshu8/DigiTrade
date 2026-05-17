@@ -12,8 +12,8 @@
     "build": "yarn workspaces foreach -ptA run build",
     "build:services": "yarn workspaces foreach -pt --include '@remit/*' run build",
     "build:frontend": "yarn workspace @remit/frontend build",
-    "dev": "yarn workspaces foreach -A run dev",
-    "dev:services": "yarn workspaces foreach -pt --include '@remit/*' run dev",
+    "dev": "concurrently \"yarn dev:services\" \"yarn dev:frontend\"",
+    "dev:services": "yarn workspaces foreach -ptA --include '@remit/*' --exclude '@remit/shared-*' run dev",
     "dev:frontend": "yarn workspace @remit/frontend dev",
     "lint": "yarn workspaces foreach -A run lint",
     "test": "yarn workspaces foreach -A run test",
@@ -28,6 +28,7 @@
     "seed": "yarn workspace @remit/prisma seed"
   },
   "devDependencies": {
+    "concurrently": "^8.2.2",
     "prettier": "^3.1.1",
     "typescript": "^5.3.3"
   },
