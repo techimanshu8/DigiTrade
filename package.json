@@ -36,5 +36,8 @@
     "node": ">=20.0.0",
     "yarn": ">=4.0.0"
   },
-  "packageManager": "yarn@4.14.1"
+  "packageManager": "yarn@4.14.1",
+  "dependencies": {
+    "http-proxy-middleware": "^4.0.0"
+  }
 }
